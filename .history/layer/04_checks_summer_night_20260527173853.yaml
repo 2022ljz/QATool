@@ -14,7 +14,7 @@ preset: activity_full_check
 params:
   currency_id: NIGHT_JADE
   weekly_limit: 120
-  expected_reset_weekday: Monday  # 这是自己追加check的参数
+  expected_reset_weekday: Monday  //这是自己追加的参数
   activity_weeks: 2
 
 # 可选：临时补充规则。普通 QA 不需要写。

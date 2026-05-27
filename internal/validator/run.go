@@ -25,7 +25,13 @@ func Run(ctx context.Context, opts Options) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	store, err := LoadStore(ctx, opts.SchemaPath, opts.DataDir, schema)
+	if checks.Target.Table == "" {
+		checks.Target.Table = schema.Root.LogicalTable
+	}
+	if checks.Target.Key == "" {
+		checks.Target.Key = schema.Root.DefaultTargetKey
+	}
+	store, err := LoadStore(ctx, opts.SchemaPath, opts.DataDir, schema, checks.Target)
 	if err != nil {
 		return "", err
 	}
@@ -34,12 +40,6 @@ func Run(ctx context.Context, opts Options) (string, error) {
 		return "", fmt.Errorf("preset %s not found", checks.Preset)
 	}
 	scope := Scope{TargetTable: checks.Target.Table, TargetKey: checks.Target.Key, TargetValue: checks.Target.Value, ActivityID: checks.Target.Value}
-	if checks.Target.Table == "" {
-		checks.Target.Table = schema.Root.LogicalTable
-	}
-	if checks.Target.Key == "" {
-		checks.Target.Key = schema.Root.DefaultTargetKey
-	}
 	if !targetExists(store, checks.Target) {
 		return "", fmt.Errorf("target %s.%s=%q not found (%s)", checks.Target.Table, checks.Target.Key, checks.Target.Value, storeSummary(store))
 	}
@@ -120,11 +120,17 @@ func prepareRules(preset PresetConfig, checks ChecksConfig, lib RuleLibraryConfi
 	rules = append(rules, preset.Templates...)
 	rules = append(rules, preset.Checks...)
 	rules = append(rules, checks.ExtraChecks...)
-	filtered := rules[:0]
 	for i, r := range rules {
 		if r.ID == "" {
 			r.ID = fmt.Sprintf("%s_%02d", r.Rule, i+1)
 		}
+		rules[i] = r
+	}
+	if err := validatePresetParams(preset, checks, rules); err != nil {
+		return nil, err
+	}
+	filtered := rules[:0]
+	for _, r := range rules {
 		if skipped(r, checks.Skip) {
 			continue
 		}
@@ -137,6 +143,73 @@ func prepareRules(preset PresetConfig, checks ChecksConfig, lib RuleLibraryConfi
 		filtered = append(filtered, r)
 	}
 	return filtered, nil
+}
+
+func validatePresetParams(preset PresetConfig, checks ChecksConfig, rules []RuleInstance) error {
+	allowed := map[string]bool{}
+	used := map[string]bool{}
+	for _, k := range preset.RequiredParams {
+		allowed[k] = true
+		if _, ok := checks.Params[k]; !ok {
+			return fmt.Errorf("preset %q missing required param %q", checks.Preset, k)
+		}
+	}
+	for _, k := range preset.OptionalParams {
+		allowed[k] = true
+	}
+	for _, r := range rules {
+		if skipped(r, checks.Skip) {
+			continue
+		}
+		for _, k := range referencedParams(r) {
+			used[k] = true
+			allowed[k] = true
+			if _, ok := checks.Params[k]; !ok {
+				return fmt.Errorf("rule %s references missing param %q", r.Rule, k)
+			}
+		}
+	}
+	for k := range checks.Params {
+		if !allowed[k] && !used[k] {
+			return fmt.Errorf("param %q is not declared by preset %q and is not referenced by any rule", k, checks.Preset)
+		}
+	}
+	return nil
+}
+
+func referencedParams(rule RuleInstance) []string {
+	seen := map[string]bool{}
+	var out []string
+	if v, ok := rule.With["param"]; ok {
+		name := asString(v)
+		if name != "" {
+			seen[name] = true
+			out = append(out, name)
+		}
+	}
+	collectParamRefs(rule.With, seen, &out)
+	return out
+}
+
+func collectParamRefs(v any, seen map[string]bool, out *[]string) {
+	switch x := v.(type) {
+	case string:
+		if strings.HasPrefix(x, "$params.") {
+			name := strings.TrimPrefix(x, "$params.")
+			if name != "" && !seen[name] {
+				seen[name] = true
+				*out = append(*out, name)
+			}
+		}
+	case map[string]any:
+		for _, item := range x {
+			collectParamRefs(item, seen, out)
+		}
+	case []any:
+		for _, item := range x {
+			collectParamRefs(item, seen, out)
+		}
+	}
 }
 
 func skipped(rule RuleInstance, skips []SkipRule) bool {

@@ -25,11 +25,16 @@ func loadYAML[T any](path string) (*T, error) {
 	return &out, nil
 }
 
-func LoadStore(ctx context.Context, schemaPath, dataDir string, schema *SchemaConfig) (*TableStore, error) {
+func LoadStore(ctx context.Context, schemaPath, dataDir string, schema *SchemaConfig, target TargetConfig) (*TableStore, error) {
 	store := &TableStore{Tables: map[string]*Table{}}
 	var mu sync.Mutex
 	errCh := make(chan error, len(schema.Tables))
 	var wg sync.WaitGroup
+	rootTable := schema.Root.LogicalTable
+	targetKey := target.Key
+	if targetKey == "" {
+		targetKey = schema.Root.DefaultTargetKey
+	}
 	for logical, tableSchema := range schema.Tables {
 		logical, tableSchema := logical, tableSchema
 		wg.Add(1)
@@ -42,7 +47,7 @@ func LoadStore(ctx context.Context, schemaPath, dataDir string, schema *SchemaCo
 			default:
 			}
 			path := resolveCSVPath(schemaPath, dataDir, schema.Dataset.BaseDir, tableSchema.File)
-			t, err := loadCSV(logical, path, tableSchema.PrimaryKey)
+			t, err := loadCSV(logical, path, tableSchema.PrimaryKey, rowFilter(logical, tableSchema, rootTable, targetKey, target.Value))
 			if err != nil {
 				errCh <- err
 				return
@@ -71,6 +76,23 @@ func LoadStore(ctx context.Context, schemaPath, dataDir string, schema *SchemaCo
 	return store, nil
 }
 
+func rowFilter(logical string, tableSchema TableSchema, rootTable, targetKey, targetValue string) func(Row) bool {
+	if targetValue == "" {
+		return nil
+	}
+	if logical == rootTable {
+		return func(row Row) bool {
+			return row[targetKey] == targetValue
+		}
+	}
+	if _, ok := tableSchema.Fields["activity_id"]; ok {
+		return func(row Row) bool {
+			return row["activity_id"] == targetValue
+		}
+	}
+	return nil
+}
+
 func resolveCSVPath(schemaPath, dataDir, baseDir, file string) string {
 	if dataDir != "" {
 		return filepath.Join(dataDir, file)
@@ -89,7 +111,7 @@ func resolveCSVPath(schemaPath, dataDir, baseDir, file string) string {
 	return candidates[0]
 }
 
-func loadCSV(logical, path, pk string) (*Table, error) {
+func loadCSV(logical, path, pk string, keep func(Row) bool) (*Table, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("load csv %s: %w", path, err)
@@ -118,6 +140,9 @@ func loadCSV(logical, path, pk string) (*Table, error) {
 			} else {
 				row[h] = ""
 			}
+		}
+		if keep != nil && !keep(row) {
+			continue
 		}
 		t.Rows = append(t.Rows, row)
 		t.PKIndex[row[pk]] = row

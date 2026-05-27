@@ -7,15 +7,17 @@ target:
   table: activity
   key: activity_id
   value: summer_night_2024
-  name: "一夏夜梦谭"  # 服务可读性
+  name: "一夏夜梦谭"
 
 preset: activity_full_check
 
 params:
   currency_id: NIGHT_JADE
+  currency_name: "夜之玉"
   weekly_limit: 120
-  expected_reset_weekday: Monday  # 这是自己追加check的参数
+  expected_reset_weekday: Monday
   activity_weeks: 2
+  require_redpoint: true
 
 # 可选：临时补充规则。普通 QA 不需要写。
 # extra_checks 会在 preset 展开后追加执行。

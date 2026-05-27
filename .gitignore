@@ -2,6 +2,15 @@
 PRD.md
 Tech Design.md
 
+# Exported document artifacts
+*.doc
+*.docx
+*.pdf
+*.ppt
+*.pptx
+*.xls
+*.xlsx
+
 # Generated reports
 reports/
 

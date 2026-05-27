@@ -6,9 +6,10 @@ It is designed for QA workflows before entering the game client. The tool does n
 
 ## Features
 
-- Loads 10 CSV config tables from `table_config/`
+- Loads CSV config tables from `table_config/` with target-aware row filtering
 - Loads the 4-layer YAML config model from `layer/`
 - Checks one target activity by `target + preset`
+- Keeps only target `activity_id` rows for activity-scoped tables during CSV reading
 - Supports schema defaults:
   - primary key uniqueness
   - foreign key existence
@@ -45,6 +46,20 @@ The generated report is written to the path configured in the check file:
 ```text
 reports/summer_night_2024.md
 ```
+
+## Data Loading
+
+The loader reads CSV files table by table. Different tables are loaded concurrently, while each CSV file is read sequentially in streaming style.
+
+Rows are filtered before entering memory:
+
+- The root `activity` table keeps only the target activity row.
+- Tables with an `activity_id` field keep only rows matching `target.value`.
+- Shared reference tables without `activity_id`, such as `reward` and `item`, are currently kept in full so indirect foreign-key checks can still resolve referenced rows.
+
+After filtering, the remaining rows are stored in `TableStore` and indexed by primary key, `activity_id`, enabled field, and declared foreign-key fields.
+
+This avoids loading every row from large activity-scoped tables for a single-activity QA run. A future optimization can further trim shared reference tables by first collecting referenced IDs from activity-scoped rows.
 
 ## Runner Fields
 
@@ -99,7 +114,7 @@ The layer-4 check file controls normal QA input:
 | `target.value` | Target activity ID, for example `summer_night_2024`. |
 | `target.name` | Optional display name for the activity. |
 | `preset` | Preset name from `03_presets.yaml`, for example `activity_full_check`. |
-| `params` | Business parameters used by preset rules, such as `currency_id`, `weekly_limit`, `expected_reset_weekday`, and `activity_weeks`. |
+| `params` | Business parameters consumed by the selected preset and extra checks. Required preset params are declared in layer 3; extra checks may reference additional params with `param: name` or `$params.name`. Unused params are rejected. |
 | `extra_checks` | Optional additional rule instances appended after preset expansion. |
 | `skip` | Optional rule skip list by rule instance `id` or `rule`. |
 | `output.format` | Report format. Current implementation writes Markdown. |
@@ -128,7 +143,7 @@ The layer-4 check file controls normal QA input:
 | --- | --- | --- |
 | 1 | `01_schema.yaml` | Declares tables, CSV files, primary keys, fields, and foreign keys |
 | 2 | `02_rule_library.yaml` | Defines reusable rule templates and required parameters |
-| 3 | `03_presets.yaml` | Assembles rule templates into business presets |
+| 3 | `03_presets.yaml` | Assembles rule templates into business presets and declares required/optional preset params |
 | 4 | `04_checks_summer_night.yaml` | QA entry file: target activity, preset, params, output |
 
 Most QA usage should only touch layer 4.
@@ -142,7 +157,14 @@ target:
   value: summer_night_2024
 
 preset: activity_full_check
+
+params:
+  currency_id: NIGHT_JADE
+  weekly_limit: 120
+  activity_weeks: 2
 ```
+
+For `activity_full_check`, layer 3 declares `currency_id`, `weekly_limit`, and `activity_weeks` as required params. The sample check also defines `expected_reset_weekday` because its `extra_checks` section references that param.
 
 ## Example Findings
 

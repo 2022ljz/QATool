@@ -18,6 +18,11 @@ presets:
   activity_full_check:
     name: "活动综合校验包"
     description: "适用于包含签到、红点、任务、货币、兑换、奖池的活动。"
+    required_params:
+      - currency_id
+      - weekly_limit
+      - activity_weeks
+    optional_params: []
     include_schema_default_checks: true
     templates:
       # 生命周期：对应 checklist 日期 CL / 活动常规

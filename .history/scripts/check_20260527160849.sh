@@ -12,5 +12,4 @@ go run ./cmd/validator check \
   --presets layer/03_presets.yaml \
   --check layer/04_checks_summer_night.yaml \
   --data-dir table_config \
-  --workers 4 \
-  --out summer_night_new.md
+  --workers 4

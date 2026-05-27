@@ -56,3 +56,66 @@ func TestCompare(t *testing.T) {
 		t.Fatalf("string compare failed: ok=%v err=%v", ok, err)
 	}
 }
+
+func TestPrepareRulesValidatesPresetRequiredParams(t *testing.T) {
+	_, err := prepareRules(
+		PresetConfig{
+			RequiredParams: []string{"currency_id"},
+			Templates: []RuleInstance{
+				{Rule: "value_equals_param", Group: "consistency", With: map[string]any{"table": "currency", "field": "weekly_limit", "param": "weekly_limit"}},
+			},
+		},
+		ChecksConfig{
+			Preset: "activity_full_check",
+			Params: map[string]any{"weekly_limit": 120},
+		},
+		testRuleLibrary(),
+	)
+	if err == nil || !strings.Contains(err.Error(), `missing required param "currency_id"`) {
+		t.Fatalf("expected missing preset param error, got %v", err)
+	}
+}
+
+func TestPrepareRulesRejectsUnusedParams(t *testing.T) {
+	_, err := prepareRules(
+		PresetConfig{
+			RequiredParams: []string{"weekly_limit"},
+			Templates: []RuleInstance{
+				{Rule: "value_equals_param", Group: "consistency", With: map[string]any{"table": "currency", "field": "weekly_limit", "param": "weekly_limit"}},
+			},
+		},
+		ChecksConfig{
+			Preset: "activity_full_check",
+			Params: map[string]any{"weekly_limit": 120, "currency_name": "夜之玉"},
+		},
+		testRuleLibrary(),
+	)
+	if err == nil || !strings.Contains(err.Error(), `param "currency_name" is not declared`) {
+		t.Fatalf("expected unused param error, got %v", err)
+	}
+}
+
+func TestRowFilterKeepsOnlyTargetActivityRows(t *testing.T) {
+	filter := rowFilter("task", TableSchema{Fields: map[string]string{"activity_id": "activity_id"}}, "activity", "activity_id", "summer_night_2024")
+	if filter == nil {
+		t.Fatal("expected activity-scoped table filter")
+	}
+	if !filter(Row{"activity_id": "summer_night_2024"}) {
+		t.Fatal("target activity row should be kept")
+	}
+	if filter(Row{"activity_id": "other_activity"}) {
+		t.Fatal("other activity row should be dropped")
+	}
+}
+
+func testRuleLibrary() RuleLibraryConfig {
+	return RuleLibraryConfig{
+		RuleGroups: map[string]RuleGroup{
+			"consistency": {
+				Rules: []RuleDef{
+					{ID: "value_equals_param", Params: RuleParams{Required: []string{"table", "field", "param"}}},
+				},
+			},
+		},
+	}
+}

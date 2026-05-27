@@ -1,0 +1,169 @@
+# Layer 2: rule_library.yaml
+# 职责：定义 4 类通用规则模板。这里只描述规则类型和参数，不绑定具体活动。
+# 维护者：工具开发者。
+version: "1.1"
+
+# 规则实例元数据约定：
+# - severity / message / suggestion 属于规则实例的顶层元数据，不属于 with 参数。
+# - with 只保存 Checker 真正参与计算的业务参数。
+rule_instance_metadata:
+  required: [rule, group, with]
+  optional: [severity, message, suggestion, checklist_source]
+
+# 参数注入语法：
+# - "$params.xxx"：引用 checks.yaml 中 params.xxx 的值。
+# - "$target.xxx"：引用 checks.yaml 中 target.xxx 的值。
+# 例：left_where: { reward_currency_id: "$params.currency_id" }
+parameter_syntax:
+  params_reference_prefix: "$params."
+  target_reference_prefix: "$target."
+
+rule_groups:
+  consistency:
+    name: "跨表语义一致性"
+    description: "检查不同表或同表字段在业务含义上是否一致。"
+    rules:
+      - id: same_table_field_match
+        checker: ConsistencyChecker
+        description: "同表两个字段必须一致，例如 weekly_limit == ui_display_limit。"
+        params:
+          required: [table, field_a, field_b]
+          optional: [where]
+
+      - id: field_compare_via_fk
+        checker: ConsistencyChecker
+        description: "子表字段与父表字段按操作符比较，例如 redpoint.open_level >= activity.open_level。"
+        params:
+          required: [child_table, parent_table, fk_field, child_field, parent_field, operator]
+          optional: [where]
+
+      - id: field_match_via_fk
+        checker: ConsistencyChecker
+        description: "子表字段必须等于父表字段。适合货币 ID、活动 ID 等强一致字段。"
+        params:
+          required: [child_table, parent_table, fk_field, child_field, parent_field]
+          optional: [where]
+
+      - id: value_equals_param
+        checker: ConsistencyChecker
+        description: "字段值必须等于 QA 业务脚本中的参数，例如 weekly_limit == params.weekly_limit。"
+        params:
+          required: [table, field, param]
+          optional: [where]
+
+      - id: value_in_set
+        checker: ConsistencyChecker
+        description: "字段值必须属于指定枚举集合。"
+        params:
+          required: [table, field, allowed]
+          optional: [where]
+
+  aggregation:
+    name: "跨表聚合约束"
+    description: "检查分组计数、求和、产出消耗等聚合关系。"
+    rules:
+      - id: field_unique_in_group
+        checker: AggregationChecker
+        description: "分组内字段值不能重复，例如同一个 signin_id 下 day_no 不能重复。"
+        params:
+          required: [table, group_by, unique_field]
+          optional: [where]
+
+      - id: count_equals_field
+        checker: AggregationChecker
+        description: "子表分组数量必须等于父表字段，例如签到奖励天数 == total_days。"
+        params:
+          required: [child_table, group_by, parent_table, parent_key, parent_field]
+          optional: [where]
+
+      - id: max_field_lte_parent_field
+        checker: AggregationChecker
+        description: "子表某字段最大值不能超过父表字段，例如 max(day_no) <= total_days。"
+        params:
+          required: [child_table, group_by, field, parent_table, parent_key, parent_field]
+          optional: [where]
+
+      - id: aggregate_compare
+        checker: AggregationChecker
+        description: "两个表按条件聚合后比较，例如任务货币理论产出 >= 兑换消耗。multiplier 可用于活动周数等倍数计算。"
+        params:
+          required: [left_table, left_field, left_agg, right_table, right_field, right_agg, operator]
+          optional: [left_where, right_where, multiplier]
+
+      - id: sum_within_param_limit
+        checker: AggregationChecker
+        description: "按条件求和后和 QA 参数上限进行比较。"
+        params:
+          required: [table, field, param, operator]
+          optional: [where]
+
+  lifecycle:
+    name: "跨模块生命周期一致性"
+    description: "检查子配置时间窗口是否落在活动生命周期内。"
+    rules:
+      - id: time_window_within
+        checker: LifecycleChecker
+        description: "子表 start/end 必须落在父表 start/end 范围内。用于活动结束后红点、签到、任务、奖池仍有效等配置风险。"
+        params:
+          required: [child_table, parent_table, fk_field]
+          optional: [child_start, child_end, parent_start, parent_end, where]
+
+      - id: start_end_valid
+        checker: LifecycleChecker
+        description: "同表 start_time 必须早于 end_time。"
+        params:
+          required: [table]
+          optional: [start_field, end_field, where]
+
+      - id: refresh_weekday_match
+        checker: LifecycleChecker
+        description: "刷新星期必须和货币重置星期一致，例如 task.refresh_weekday == currency.reset_weekday。"
+        params:
+          required: [child_table, parent_table, fk_field, child_field, parent_field]
+          optional: [where]
+
+      - id: child_state_when_parent_ended
+        checker: LifecycleChecker
+        description: "父表生命周期结束后，子表状态字段必须为指定值。注意：仅适用于状态字段真实表达运行时开关的项目；活动红点残留默认优先用 time_window_within 校验。"
+        params:
+          required: [parent_table, child_table, fk_field, child_field, expected_value]
+          optional: [where]
+
+  hierarchy:
+    name: "层级/依赖一致性"
+    description: "检查父子红点、奖池链路等层级关系。"
+    rules:
+      - id: parent_exists
+        checker: HierarchyChecker
+        description: "父节点必须存在，例如二级红点 parent_redpoint_id 必须存在。"
+        params:
+          required: [table, self_key, parent_key]
+          optional: [where]
+
+      - id: parent_child_field_match
+        checker: HierarchyChecker
+        description: "父子节点指定字段必须一致，例如子红点和父红点 activity_id 一致。"
+        params:
+          required: [table, self_key, parent_key, field]
+          optional: [where]
+
+      - id: parent_child_time_within
+        checker: HierarchyChecker
+        description: "子节点时间窗口不能晚于父节点，例如子红点 end_time <= 父红点 end_time。"
+        params:
+          required: [table, self_key, parent_key]
+          optional: [start_field, end_field, where]
+
+      - id: no_cycle
+        checker: HierarchyChecker
+        description: "依赖链不能成环，例如 reward_pool.next_pool_id 不能形成循环。"
+        params:
+          required: [table, self_key, parent_key]
+          optional: [where]
+
+      - id: chain_reference_exists
+        checker: HierarchyChecker
+        description: "多跳引用链完整性校验。当前 10 表版本主要用于奖池、奖励、物品链路。"
+        params:
+          required: [chain]
+          optional: [where]

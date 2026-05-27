@@ -79,6 +79,8 @@ type PresetsConfig struct {
 type PresetConfig struct {
 	Name                       string         `yaml:"name"`
 	Description                string         `yaml:"description"`
+	RequiredParams             []string       `yaml:"required_params"`
+	OptionalParams             []string       `yaml:"optional_params"`
 	IncludeSchemaDefaultChecks bool           `yaml:"include_schema_default_checks"`
 	Templates                  []RuleInstance `yaml:"templates"`
 	Checks                     []RuleInstance `yaml:"checks"`
