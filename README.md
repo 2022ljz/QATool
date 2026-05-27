@@ -1,27 +1,139 @@
 # Game Config Validator
 
-Game Config Validator 是一个面向游戏活动测试场景的本地 CLI 工具，用于快速校验多张策划配置表之间的业务一致性。
+Game Config Validator is a local CLI tool for validating business-level consistency across game activity configuration tables.
 
-它不替代导表工具，也不替代游戏运行时测试。它关注的是 QA checklist 中可以数据化的联表风险，例如活动时间、红点、签到、任务货币、兑换奖励、奖池链路和奖励物品引用是否一致。
+It is designed for QA workflows before entering the game client. The tool does not replace export-table validation or runtime testing. It focuses on risks that can be detected from data, such as activity time windows, redpoints, signin rewards, activity currencies, exchange rewards, reward pools, and item references.
 
 ## Features
 
-- 读取 10 张 CSV 策划表
-- 读取 4 层 YAML 校验配置
-- 按 `target + preset` 定位单个活动范围
-- 支持 schema 默认校验：主键唯一、外键存在
-- 支持业务规则校验：
-  - 生命周期窗口一致性
-  - 跨表字段一致性
-  - 参数化校验
-  - 分组唯一、计数、最大值、聚合比较
-  - 父子节点、链路环检测
-- 输出 Markdown 报告
-- 通过 Go 单元测试和集成测试验证示例活动
+- Loads 10 CSV config tables from `table_config/`
+- Loads the 4-layer YAML config model from `layer/`
+- Checks one target activity by `target + preset`
+- Supports schema defaults:
+  - primary key uniqueness
+  - foreign key existence
+- Supports business checkers:
+  - lifecycle time windows
+  - cross-table field consistency
+  - parameter equality
+  - group uniqueness, count, max, aggregate compare
+  - parent-child relationship checks
+  - dependency cycle detection
+- Generates a Markdown report
+- Includes an integration test for `summer_night_2024`
 
-## Use Case
+## Quick Start
 
-典型场景是 QA 在活动测试前，只指定活动 ID 和校验包：
+Run the default sample check:
+
+```bash
+bash scripts/check.sh
+```
+
+The script wraps the default paths:
+
+```text
+schema   -> layer/01_schema.yaml
+rules    -> layer/02_rule_library.yaml
+presets  -> layer/03_presets.yaml
+check    -> layer/04_checks_summer_night.yaml
+data     -> table_config/
+```
+
+The generated report is written to the path configured in the check file:
+
+```text
+reports/summer_night_2024.md
+```
+
+## Runner Fields
+
+`scripts/check.sh` is the recommended entry point. It runs the validator with the project defaults:
+
+| Field | Value | Description |
+| --- | --- | --- |
+| `GOCACHE` | `${GOCACHE:-$ROOT/.gocache}` | Go build cache. If the environment already has `GOCACHE`, the script keeps it; otherwise it uses the project-local `.gocache/`. |
+| `--schema` | `layer/01_schema.yaml` | Table schema, primary keys, foreign keys, time fields, and CSV file mapping. |
+| `--rules` | `layer/02_rule_library.yaml` | Rule template library. |
+| `--presets` | `layer/03_presets.yaml` | Business preset definitions. |
+| `--check` | `layer/04_checks_summer_night.yaml` | QA check entry file. |
+| `--data-dir` | `table_config` | CSV config table directory. |
+| `--workers` | `4` | Number of workers used by the rule engine. |
+
+The script currently has no positional arguments. To change the target activity, preset, params, or output path, edit the layer-4 check file.
+
+## CLI Fields
+
+The underlying CLI still supports direct flags for development or debugging:
+
+```bash
+go run ./cmd/validator check \
+  --schema layer/01_schema.yaml \
+  --rules layer/02_rule_library.yaml \
+  --presets layer/03_presets.yaml \
+  --check layer/04_checks_summer_night.yaml \
+  --data-dir table_config \
+  --out reports/summer_night_2024.md \
+  --workers 4
+```
+
+| Flag | Required | Default | Description |
+| --- | --- | --- | --- |
+| `--schema` | No | `layer/01_schema.yaml` | Schema YAML path. |
+| `--rules` | No | `layer/02_rule_library.yaml` | Rule library YAML path. |
+| `--presets` | No | `layer/03_presets.yaml` | Presets YAML path. |
+| `--check`, `-c` | No | `layer/04_checks_summer_night.yaml` | Single-run check YAML path. |
+| `--data-dir` | No | empty | CSV data directory. When empty, the loader tries schema-relative paths and then `table_config/`. |
+| `--out` | No | empty | Report output path. Takes priority over `output.path` in the check YAML. |
+| `--workers` | No | `4` | Rule execution worker count. |
+
+## Check File Fields
+
+The layer-4 check file controls normal QA input:
+
+| Field | Description |
+| --- | --- |
+| `version` | Check config version. |
+| `target.table` | Logical target table, usually `activity`. |
+| `target.key` | Target key field, usually `activity_id`. |
+| `target.value` | Target activity ID, for example `summer_night_2024`. |
+| `target.name` | Optional display name for the activity. |
+| `preset` | Preset name from `03_presets.yaml`, for example `activity_full_check`. |
+| `params` | Business parameters used by preset rules, such as `currency_id`, `weekly_limit`, `expected_reset_weekday`, and `activity_weeks`. |
+| `extra_checks` | Optional additional rule instances appended after preset expansion. |
+| `skip` | Optional rule skip list by rule instance `id` or `rule`. |
+| `output.format` | Report format. Current implementation writes Markdown. |
+| `output.path` | Report output path used when `--out` is not provided. |
+| `output.path_base` | Reserved path base hint from config. |
+| `output.include_passed` | Reserved flag for including passed checks in reports. |
+
+## Project Structure
+
+```text
+.
+|-- cmd/validator/              # CLI entry
+|-- internal/validator/          # Core validator implementation
+|-- layer/                       # 4-layer YAML config examples
+|-- scripts/
+|   `-- check.sh                 # Default runner
+|-- table_config/                # CSV config fixtures
+|-- reports/                     # Generated reports, ignored by git
+|-- go.mod
+`-- go.sum
+```
+
+## 4-Layer Config Model
+
+| Layer | File | Purpose |
+| --- | --- | --- |
+| 1 | `01_schema.yaml` | Declares tables, CSV files, primary keys, fields, and foreign keys |
+| 2 | `02_rule_library.yaml` | Defines reusable rule templates and required parameters |
+| 3 | `03_presets.yaml` | Assembles rule templates into business presets |
+| 4 | `04_checks_summer_night.yaml` | QA entry file: target activity, preset, params, output |
+
+Most QA usage should only touch layer 4.
+
+## Example Target
 
 ```yaml
 target:
@@ -32,174 +144,51 @@ target:
 preset: activity_full_check
 ```
 
-工具会自动加载策划表、展开 preset、执行联表规则，并生成一份可读的风险报告。
+## Example Findings
 
-## Project Structure
+The fixture data intentionally contains invalid records. The sample report can detect issues such as:
 
-```text
-.
-├── cmd/validator/              # CLI 入口
-├── internal/validator/          # 核心实现
-│   ├── checkers.go              # 业务规则 checker
-│   ├── engine.go                # 规则执行引擎
-│   ├── run.go                   # 一次校验的主流程
-│   ├── store.go                 # CSV 加载和内存索引
-│   ├── types.go                 # 配置、表、报告结构
-│   └── util.go                  # 比较、时间、参数工具
-├── layer/                       # 4 层 YAML 配置示例
-│   ├── 01_schema.yaml
-│   ├── 02_rule_library.yaml
-│   ├── 03_presets.yaml
-│   └── 04_checks_summer_night.yaml
-├── table_config/                # 策划表 CSV 示例
-├── reports/                     # 输出报告
-├── PRD.md
-├── Tech Design.md
-├── go.mod
-└── go.sum
-```
-
-## Requirements
-
-- Go 1.23+
-
-当前项目使用：
-
-- `gopkg.in/yaml.v3` 解析 YAML
-- Go 标准库读取 CSV、生成报告和执行测试
-
-## Quick Start
-
-在项目根目录运行：
-
-```powershell
-go run ./cmd/validator check `
-  --schema layer/01_schema.yaml `
-  --rules layer/02_rule_library.yaml `
-  --presets layer/03_presets.yaml `
-  --check layer/04_checks_summer_night.yaml `
-  --data-dir table_config
-```
-
-如果 Windows 默认 Go build cache 有权限或目录冲突问题，可以指定当前项目内缓存：
-
-```powershell
-$env:GOCACHE='e:\GO\goproj\秋招\QATool\.gocache'
-go run ./cmd/validator check --schema layer/01_schema.yaml --rules layer/02_rule_library.yaml --presets layer/03_presets.yaml --check layer/04_checks_summer_night.yaml --data-dir table_config
-```
-
-执行成功后会生成：
-
-```text
-reports/summer_night_2024.md
-```
-
-## CLI
-
-核心命令：
-
-```bash
-validator check \
-  --schema layer/01_schema.yaml \
-  --rules layer/02_rule_library.yaml \
-  --presets layer/03_presets.yaml \
-  --check layer/04_checks_summer_night.yaml \
-  --data-dir table_config \
-  --out reports/summer_night_2024.md
-```
-
-参数说明：
-
-| 参数 | 说明 |
-| --- | --- |
-| `--schema` | schema 配置路径 |
-| `--rules` | rule library 配置路径 |
-| `--presets` | preset 配置路径 |
-| `--check`, `-c` | 单次 QA 校验配置路径 |
-| `--data-dir` | CSV 策划表目录 |
-| `--out` | 报告输出路径，优先级高于 checks YAML 中的 output.path |
-| `--workers` | 并发执行规则的 worker 数量，默认 4 |
-
-## 4 Layer Config Model
-
-项目采用 4 层配置模型：
-
-| 层级 | 文件 | 维护者 | 作用 |
-| --- | --- | --- | --- |
-| 1 | `01_schema.yaml` | 工具开发 | 声明表、字段、主键、外键、CSV 文件 |
-| 2 | `02_rule_library.yaml` | 工具开发 | 定义通用规则模板和必填参数 |
-| 3 | `03_presets.yaml` | 工具开发 / 资深 QA | 把规则模板组装成业务校验包 |
-| 4 | `04_checks_summer_night.yaml` | QA | 指定活动、preset、业务参数和输出路径 |
-
-普通 QA 通常只需要修改第 4 层。
-
-## Example Report
-
-示例数据中故意保留了若干异常，用于验证工具能力。对 `summer_night_2024` 运行 `activity_full_check` 后，报告会识别包括但不限于：
-
-- 红点结束时间晚于活动结束时间
-- 红点开放等级低于活动开放等级
-- 二级红点父节点不存在
-- 签到结束时间晚于活动结束时间
-- 签到奖励 `day_no` 重复
-- 签到奖励 `day_no` 超过 `total_days`
-- 签到奖励引用不存在的 `reward_id`
-- 货币周上限与 UI 展示上限不一致
-- 任务产出货币与活动绑定货币不一致
-- 兑换消耗货币与活动绑定货币不一致
-- 兑换展示奖励与实际发放奖励不一致
-- 奖池 next / preview 链路引用不存在
-- 奖励引用不存在的物品
+- redpoint time exceeding activity time
+- redpoint open level lower than activity open level
+- missing parent redpoint
+- signin time exceeding activity time
+- duplicated signin `day_no`
+- signin `day_no` greater than `total_days`
+- missing reward references
+- currency weekly limit inconsistent with UI display limit
+- task reward currency inconsistent with activity currency
+- exchange cost currency inconsistent with activity currency
+- exchange display reward inconsistent with actual reward
+- reward pool broken links
+- reward referencing a missing item
 
 ## Tests
 
-运行测试：
-
-```powershell
+```bash
 go test ./...
 ```
 
-如果需要指定 Go build cache：
+If the default Go build cache has permission issues, the runner script already uses a project-local cache:
 
-```powershell
-$env:GOCACHE='e:\GO\goproj\秋招\QATool\.gocache'
-go test ./...
+```bash
+bash scripts/check.sh
 ```
-
-当前测试包含：
-
-- 比较工具单元测试
-- `summer_night_2024` 集成测试
-- 报告关键异常断言
 
 ## Design Boundary
 
-本工具只检查配置数据表达出的业务风险。
+This tool only validates configuration data relationships.
 
-不会检查：
+It does not validate:
 
-- UI 是否真实渲染正确
-- 动画是否播放正常
-- 点击后游戏状态是否真实变化
-- 奖励是否真的到账
-- 货币是否真的扣除
-- NPC、场景、特效等运行时表现
+- real UI rendering
+- animation playback
+- actual click behavior
+- real reward delivery
+- real currency deduction
+- NPC, scene, or VFX runtime behavior
 
-这些仍然需要进入游戏内验证。
-
-## Roadmap
-
-后续可以扩展：
-
-- CSV 报告
-- Excel xlsx 读取
-- Web 报告页面
-- 配置 diff 检查
-- Git pre-commit hook
-- 历史报告归档
-- 缺陷系统集成
-- 按活动类型自动推荐 preset
+Those still require in-game testing.
 
 ## License
 
-当前仓库未声明 License。公开发布到 GitHub 前，建议根据项目用途补充合适的开源协议。
+No license has been declared yet. Add one before publishing as an open-source repository.
