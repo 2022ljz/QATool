@@ -1,0 +1,336 @@
+# Layer 3: presets.yaml
+# 职责：把 rule_library 中的通用规则实例化为业务校验包。
+# 维护者：工具开发者 + 资深 QA。
+version: "1.1"
+
+# 执行顺序约定：
+# 1. schema 默认校验：主键唯一、外键存在、enabled 过滤等。
+# 2. 展开 preset.templates。
+# 3. 追加 checks.yaml 中的 extra_checks。
+# 4. 根据 checks.yaml 中的 skip 过滤规则。
+execution_order:
+  - schema_default_checks
+  - preset_templates
+  - extra_checks
+  - skip_filter
+
+presets:
+  activity_full_check:
+    name: "活动综合校验包"
+    description: "适用于包含签到、红点、任务、货币、兑换、奖池的活动。"
+    include_schema_default_checks: true
+    templates:
+      # 生命周期：对应 checklist 日期 CL / 活动常规
+      - rule: start_end_valid
+        group: lifecycle
+        with: { table: activity }
+        severity: ERROR
+        message: "活动开始时间必须早于结束时间"
+
+      - rule: time_window_within
+        group: lifecycle
+        with: { child_table: signin, parent_table: activity, fk_field: activity_id }
+        severity: ERROR
+        message: "签到时间必须落在活动生命周期内"
+
+      - rule: time_window_within
+        group: lifecycle
+        with: { child_table: redpoint, parent_table: activity, fk_field: activity_id }
+        severity: ERROR
+        message: "红点生效时间必须落在活动生命周期内，避免活动结束后红点残留"
+
+      - rule: time_window_within
+        group: lifecycle
+        with: { child_table: task, parent_table: activity, fk_field: activity_id }
+        severity: ERROR
+        message: "任务生效时间必须落在活动生命周期内"
+
+      - rule: time_window_within
+        group: lifecycle
+        with: { child_table: exchange, parent_table: activity, fk_field: activity_id }
+        severity: ERROR
+        message: "兑换生效时间必须落在活动生命周期内"
+
+      - rule: time_window_within
+        group: lifecycle
+        with: { child_table: reward_pool, parent_table: activity, fk_field: activity_id }
+        severity: ERROR
+        message: "奖池生效时间必须落在活动生命周期内"
+
+      - rule: time_window_within
+        group: lifecycle
+        with: { child_table: currency, parent_table: activity, fk_field: activity_id }
+        severity: ERROR
+        message: "货币生效时间必须落在活动生命周期内"
+
+      # 红点：对应 checklist 红点 CL
+      - rule: field_compare_via_fk
+        group: consistency
+        with:
+          child_table: redpoint
+          parent_table: activity
+          fk_field: activity_id
+          child_field: open_level
+          parent_field: open_level
+          operator: ">="
+        severity: WARN
+        message: "红点开放等级不应低于活动开放等级，避免低等级玩家看到无效红点"
+
+      - rule: parent_exists
+        group: hierarchy
+        with: { table: redpoint, self_key: redpoint_id, parent_key: parent_redpoint_id }
+        severity: ERROR
+        message: "二级红点必须有合法父级红点"
+
+      - rule: parent_child_field_match
+        group: hierarchy
+        with: { table: redpoint, self_key: redpoint_id, parent_key: parent_redpoint_id, field: activity_id }
+        severity: ERROR
+        message: "子红点和父红点必须属于同一个活动"
+
+      - rule: parent_child_time_within
+        group: hierarchy
+        with: { table: redpoint, self_key: redpoint_id, parent_key: parent_redpoint_id }
+        severity: ERROR
+        message: "二级红点生效时间不能晚于一级红点"
+
+      # 签到：对应 checklist 逻辑 CL
+      - rule: field_unique_in_group
+        group: aggregation
+        with: { table: signin_reward, group_by: signin_id, unique_field: day_no }
+        severity: ERROR
+        message: "同一签到活动下 day_no 不能重复"
+
+      - rule: count_equals_field
+        group: aggregation
+        with:
+          child_table: signin_reward
+          group_by: signin_id
+          parent_table: signin
+          parent_key: signin_id
+          parent_field: total_days
+        severity: WARN
+        message: "签到奖励条数应与签到总天数一致"
+
+      - rule: max_field_lte_parent_field
+        group: aggregation
+        with:
+          child_table: signin_reward
+          group_by: signin_id
+          field: day_no
+          parent_table: signin
+          parent_key: signin_id
+          parent_field: total_days
+        severity: ERROR
+        message: "签到奖励天数不能超过签到总天数"
+
+      - rule: field_compare_via_fk
+        group: consistency
+        with:
+          child_table: signin_reward
+          parent_table: signin
+          fk_field: signin_id
+          child_field: unlock_level
+          parent_field: open_level
+          operator: ">="
+        severity: WARN
+        message: "签到奖励解锁等级不应低于签到活动开放等级"
+
+      - rule: value_in_set
+        group: consistency
+        with:
+          table: signin
+          field: claim_scope
+          allowed: [account, role]
+        severity: WARN
+        message: "签到奖励领取维度必须明确为 account 或 role"
+
+      # 货币/任务：对应 checklist 货币夜之玉、周一刷新、上限 120
+      - rule: same_table_field_match
+        group: consistency
+        with: { table: currency, field_a: weekly_limit, field_b: ui_display_limit }
+        severity: ERROR
+        message: "货币周上限与 UI 展示上限必须一致"
+
+      - rule: value_equals_param
+        group: consistency
+        with: { table: currency, field: weekly_limit, param: weekly_limit }
+        severity: WARN
+        message: "货币周上限应符合本次活动 checklist 参数"
+
+      - rule: refresh_weekday_match
+        group: lifecycle
+        with:
+          child_table: task
+          parent_table: currency
+          fk_field: reward_currency_id
+          child_field: refresh_weekday
+          parent_field: reset_weekday
+        severity: WARN
+        message: "任务周刷新日应与货币重置星期一致"
+
+      - rule: field_match_via_fk
+        group: consistency
+        with:
+          child_table: task
+          parent_table: activity
+          fk_field: activity_id
+          child_field: reward_currency_id
+          parent_field: currency_id
+        severity: ERROR
+        message: "任务产出货币应与活动绑定货币一致"
+
+      # 兑换/奖励/奖池：对应 checklist 奖励兑换、展示与实际一致、奖池预览
+      - rule: field_match_via_fk
+        group: consistency
+        with:
+          child_table: exchange
+          parent_table: activity
+          fk_field: activity_id
+          child_field: cost_currency_id
+          parent_field: currency_id
+        severity: ERROR
+        message: "兑换消耗货币应与活动绑定货币一致"
+
+      - rule: same_table_field_match
+        group: consistency
+        with: { table: exchange, field_a: display_reward_id, field_b: actual_reward_id }
+        severity: ERROR
+        message: "兑换展示奖励与实际发放奖励必须一致"
+
+      - rule: no_cycle
+        group: hierarchy
+        with: { table: reward_pool, self_key: pool_id, parent_key: next_pool_id }
+        severity: ERROR
+        message: "奖池 next_pool_id 不能形成循环"
+
+      - rule: no_cycle
+        group: hierarchy
+        with: { table: reward_pool, self_key: pool_id, parent_key: preview_pool_id }
+        severity: WARN
+        message: "奖池 preview_pool_id 不应形成循环"
+
+      - rule: aggregate_compare
+        group: aggregation
+        with:
+          left_table: task
+          left_field: reward_currency_count
+          left_agg: sum
+          left_where: { reward_currency_id: "$params.currency_id" }
+          right_table: exchange
+          right_field: cost_count
+          right_agg: sum
+          right_where: { cost_currency_id: "$params.currency_id" }
+          multiplier: "$params.activity_weeks"
+          operator: ">="
+        severity: WARN
+        message: "活动期间任务货币理论产出低于兑换消耗，可能无法兑换核心奖励"
+
+  signin_only_check:
+    name: "纯签到活动校验包"
+    description: "适用于只包含签到、红点和基础奖励的活动。"
+    include_schema_default_checks: true
+    templates:
+      - rule: time_window_within
+        group: lifecycle
+        with: { child_table: signin, parent_table: activity, fk_field: activity_id }
+        severity: ERROR
+      - rule: time_window_within
+        group: lifecycle
+        with: { child_table: redpoint, parent_table: activity, fk_field: activity_id }
+        severity: ERROR
+      - rule: field_unique_in_group
+        group: aggregation
+        with: { table: signin_reward, group_by: signin_id, unique_field: day_no }
+        severity: ERROR
+      - rule: max_field_lte_parent_field
+        group: aggregation
+        with:
+          child_table: signin_reward
+          group_by: signin_id
+          field: day_no
+          parent_table: signin
+          parent_key: signin_id
+          parent_field: total_days
+        severity: ERROR
+      - rule: value_in_set
+        group: consistency
+        with: { table: signin, field: claim_scope, allowed: [account, role] }
+        severity: WARN
+
+  redpoint_check:
+    name: "红点专项校验包"
+    description: "适用于专门排查活动红点残留、父子红点、等级错误等问题。"
+    include_schema_default_checks: true
+    templates:
+      - rule: time_window_within
+        group: lifecycle
+        with: { child_table: redpoint, parent_table: activity, fk_field: activity_id }
+        severity: ERROR
+      - rule: field_compare_via_fk
+        group: consistency
+        with:
+          child_table: redpoint
+          parent_table: activity
+          fk_field: activity_id
+          child_field: open_level
+          parent_field: open_level
+          operator: ">="
+        severity: WARN
+      - rule: parent_exists
+        group: hierarchy
+        with: { table: redpoint, self_key: redpoint_id, parent_key: parent_redpoint_id }
+        severity: ERROR
+      - rule: parent_child_field_match
+        group: hierarchy
+        with: { table: redpoint, self_key: redpoint_id, parent_key: parent_redpoint_id, field: activity_id }
+        severity: ERROR
+      - rule: parent_child_time_within
+        group: hierarchy
+        with: { table: redpoint, self_key: redpoint_id, parent_key: parent_redpoint_id }
+        severity: ERROR
+
+  exchange_pool_check:
+    name: "兑换奖池专项校验包"
+    description: "适用于奖池刷新、兑换奖励、展示奖励与实际奖励一致性检查。"
+    include_schema_default_checks: true
+    templates:
+      - rule: time_window_within
+        group: lifecycle
+        with: { child_table: exchange, parent_table: activity, fk_field: activity_id }
+        severity: ERROR
+      - rule: time_window_within
+        group: lifecycle
+        with: { child_table: reward_pool, parent_table: activity, fk_field: activity_id }
+        severity: ERROR
+      - rule: same_table_field_match
+        group: consistency
+        with: { table: exchange, field_a: display_reward_id, field_b: actual_reward_id }
+        severity: ERROR
+      - rule: no_cycle
+        group: hierarchy
+        with: { table: reward_pool, self_key: pool_id, parent_key: next_pool_id }
+        severity: ERROR
+      - rule: no_cycle
+        group: hierarchy
+        with: { table: reward_pool, self_key: pool_id, parent_key: preview_pool_id }
+        severity: WARN
+
+  # 可选状态清理校验包：
+  # 仅当项目中 enabled 字段确实表示“活动结束后应关闭”的配置状态时使用。
+  # 一般活动红点残留优先使用 redpoint_check 中的 time_window_within 规则。
+  redpoint_state_cleanup_optional:
+    name: "红点状态清理可选校验包"
+    description: "适用于项目约定活动结束后红点 enabled 必须置 false 的配置流。"
+    include_schema_default_checks: true
+    templates:
+      - rule: child_state_when_parent_ended
+        group: lifecycle
+        with:
+          parent_table: activity
+          child_table: redpoint
+          fk_field: activity_id
+          child_field: enabled
+          expected_value: false
+        severity: WARN
+        message: "活动结束后红点 enabled 应关闭；若项目以时间窗口控制红点生效，可跳过本规则"

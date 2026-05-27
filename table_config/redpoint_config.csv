@@ -1,0 +1,8 @@
+﻿redpoint_id,activity_id,parent_redpoint_id,redpoint_level,start_time,end_time,open_level,trigger_type,clear_type,related_reward_id,related_pool_id,enabled
+RP_SUMMER_ROOT,summer_night_2024,,1,2024-07-19 05:00:00,2024-08-01 23:59:59,30,new_activity,click,,,true
+RP_SUMMER_REWARD,summer_night_2024,RP_SUMMER_ROOT,2,2024-07-19 05:00:00,2024-08-07 23:59:59,30,reward_claimable,claim_reward,RWD_SIGNIN_DAY3,,true
+RP_SUMMER_POOL,summer_night_2024,RP_SUMMER_ROOT,2,2024-07-26 05:00:00,2024-08-02 05:00:00,30,pool_refresh,click,,POOL_SUMMER_STAGE2,true
+RP_SUMMER_LOW_LEVEL,summer_night_2024,RP_SUMMER_ROOT,2,2024-07-19 05:00:00,2024-08-01 23:59:59,20,new_activity,click,,,true
+RP_SUMMER_ORPHAN_CHILD,summer_night_2024,RP_NOT_EXIST,2,2024-07-19 05:00:00,2024-08-01 23:59:59,30,reward_claimable,claim_reward,RWD_SIGNIN_DAY2,,true
+RP_QINGHUI_ROOT,qinghui_signin_2024,,1,2024-07-19 05:00:00,2024-07-26 23:59:59,20,new_activity,click,,,true
+RP_MOON_POOL_REFRESH,moon_pool_2024,,1,2024-08-09 05:00:00,2024-08-15 23:59:59,35,pool_refresh,click,,POOL_MOON_STAGE2,true

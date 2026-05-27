@@ -1,0 +1,4 @@
+﻿activity_id,activity_name,activity_type,start_time,end_time,open_level,currency_id,need_redpoint,signin_id,task_group_id,exchange_group_id,pool_group_id,status,enabled
+summer_night_2024,一夏夜梦谭,task_exchange_pool,2024-07-19 05:00:00,2024-08-01 23:59:59,30,NIGHT_JADE,true,SIG_SUMMER_NIGHT,TG_SUMMER_NIGHT,EXG_SUMMER_NIGHT,PG_SUMMER_NIGHT,open,true
+qinghui_signin_2024,清辉梦旅签到,signin,2024-07-19 05:00:00,2024-07-26 23:59:59,20,,true,SIG_QINGHUI,,,,open,true
+moon_pool_2024,月夜奖池,pool_exchange,2024-08-02 05:00:00,2024-08-15 23:59:59,35,MOON_TOKEN,true,,TG_MOON_POOL,EXG_MOON_POOL,PG_MOON_POOL,open,true

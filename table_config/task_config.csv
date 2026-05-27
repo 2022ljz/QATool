@@ -1,0 +1,6 @@
+﻿task_id,activity_id,task_group_id,task_name,start_time,end_time,refresh_type,refresh_weekday,complete_condition_type,reward_currency_id,reward_currency_count,reward_id,enabled
+TASK_SUMMER_DAILY_1,summer_night_2024,TG_SUMMER_NIGHT,完成一次日常,2024-07-19 05:00:00,2024-08-01 23:59:59,daily,,daily_activity,NIGHT_JADE,10,,true
+TASK_SUMMER_WEEKLY_BOSS,summer_night_2024,TG_SUMMER_NIGHT,每周挑战首领,2024-07-19 05:00:00,2024-08-01 23:59:59,weekly,Monday,weekly_boss,NIGHT_JADE,60,RWD_TASK_BONUS,true
+TASK_SUMMER_WRONG_REFRESH,summer_night_2024,TG_SUMMER_NIGHT,错误刷新任务,2024-07-19 05:00:00,2024-08-01 23:59:59,weekly,Tuesday,weekly_login,NIGHT_JADE,20,,true
+TASK_SUMMER_BAD_CURRENCY,summer_night_2024,TG_SUMMER_NIGHT,错误货币任务,2024-07-19 05:00:00,2024-08-01 23:59:59,weekly,Monday,special_task,WRONG_CURRENCY,20,,true
+TASK_MOON_WEEKLY,moon_pool_2024,TG_MOON_POOL,月夜周常,2024-08-02 05:00:00,2024-08-15 23:59:59,weekly,Monday,weekly_task,MOON_TOKEN,150,RWD_MOON_TASK,true

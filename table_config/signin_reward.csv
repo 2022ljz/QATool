@@ -1,0 +1,17 @@
+﻿signin_reward_id,signin_id,activity_id,day_no,reward_id,unlock_level,can_back_claim,display_order,enabled
+SR_SUMMER_1,SIG_SUMMER_NIGHT,summer_night_2024,1,RWD_SIGNIN_DAY1,30,true,1,true
+SR_SUMMER_2,SIG_SUMMER_NIGHT,summer_night_2024,2,RWD_SIGNIN_DAY2,30,true,2,true
+SR_SUMMER_3,SIG_SUMMER_NIGHT,summer_night_2024,3,RWD_SIGNIN_DAY3,30,true,3,true
+SR_SUMMER_4,SIG_SUMMER_NIGHT,summer_night_2024,4,RWD_SIGNIN_DAY4,30,true,4,true
+SR_SUMMER_5,SIG_SUMMER_NIGHT,summer_night_2024,5,RWD_SIGNIN_DAY5,30,true,5,true
+SR_SUMMER_6,SIG_SUMMER_NIGHT,summer_night_2024,6,RWD_SIGNIN_DAY6,30,true,6,true
+SR_SUMMER_7,SIG_SUMMER_NIGHT,summer_night_2024,7,RWD_SIGNIN_DAY7,30,true,7,true
+SR_SUMMER_DUP_DAY3,SIG_SUMMER_NIGHT,summer_night_2024,3,RWD_SIGNIN_DUP,30,true,8,true
+SR_SUMMER_DAY8,SIG_SUMMER_NIGHT,summer_night_2024,8,RWD_MISSING,30,true,9,true
+SR_QINGHUI_1,SIG_QINGHUI,qinghui_signin_2024,1,RWD_QINGHUI_DAY1,20,false,1,true
+SR_QINGHUI_2,SIG_QINGHUI,qinghui_signin_2024,2,RWD_QINGHUI_DAY2,20,false,2,true
+SR_QINGHUI_3,SIG_QINGHUI,qinghui_signin_2024,3,RWD_QINGHUI_DAY3,20,false,3,true
+SR_QINGHUI_4,SIG_QINGHUI,qinghui_signin_2024,4,RWD_QINGHUI_DAY4,20,false,4,true
+SR_QINGHUI_5,SIG_QINGHUI,qinghui_signin_2024,5,RWD_QINGHUI_DAY5,20,false,5,true
+SR_QINGHUI_6,SIG_QINGHUI,qinghui_signin_2024,6,RWD_QINGHUI_DAY6,20,false,6,true
+SR_QINGHUI_7,SIG_QINGHUI,qinghui_signin_2024,7,RWD_QINGHUI_DAY7,20,false,7,true

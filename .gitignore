@@ -1,0 +1,24 @@
+# Product and design docs
+PRD.md
+Tech Design.md
+
+# Generated reports
+reports/
+
+# Local Go cache and build outputs
+.gocache/
+bin/
+dist/
+*.exe
+*.test
+*.out
+
+# Local/editor files
+.idea/
+.vscode/
+*.swp
+*.tmp
+
+# OS files
+.DS_Store
+Thumbs.db

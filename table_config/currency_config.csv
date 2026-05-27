@@ -1,0 +1,3 @@
+﻿currency_id,currency_name,activity_id,weekly_limit,ui_display_limit,reset_cycle,reset_weekday,start_time,end_time,enabled
+NIGHT_JADE,夜之玉,summer_night_2024,120,100,weekly,Monday,2024-07-19 05:00:00,2024-08-01 23:59:59,true
+MOON_TOKEN,月影币,moon_pool_2024,150,150,weekly,Monday,2024-08-02 05:00:00,2024-08-15 23:59:59,true

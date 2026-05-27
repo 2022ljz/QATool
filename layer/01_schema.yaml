@@ -1,0 +1,268 @@
+# Layer 1: schema.yaml
+# 职责：描述 10 张策划表的文件位置、主键、核心字段和外键关系。
+# 维护者：工具开发者。QA 通常不需要修改本文件。
+version: "1.1"
+
+dataset:
+  base_dir: "../"
+  format: "csv"
+  encoding: "utf-8"
+
+# root: 声明工具的业务根表。
+# QA 在 checks.yaml 中可使用 target.table=activity；若只写 event 简写，默认映射为 activity.activity_id。
+# 工具从 root 对应活动出发，筛选并追踪引用该活动的签到、红点、任务、货币、兑换、奖池等奖励链路。
+root:
+  logical_table: activity
+  physical_table: activity_config
+  primary_key: activity_id
+  default_target_key: activity_id
+
+# 引用规范：
+# - tables 下使用逻辑表名，例如 activity / redpoint / signin。
+# - physical_table/file 指向真实 CSV 或策划表文件名。
+# - fields 中左侧是工具内部使用的逻辑字段名，右侧是 CSV 中的物理字段名。
+# - foreign_keys 右侧统一使用 “逻辑表名.物理字段名”，例如 activity.activity_id。
+tables:
+  activity:
+    physical_table: activity_config
+    file: activity_config.csv
+    primary_key: activity_id
+    enabled_field: enabled
+    time_fields:
+      start: start_time
+      end: end_time
+    fields:
+      id: activity_id
+      name: activity_name
+      type: activity_type
+      start_time: start_time
+      end_time: end_time
+      open_level: open_level
+      currency_id: currency_id
+      need_redpoint: need_redpoint
+      signin_id: signin_id
+      task_group_id: task_group_id
+      exchange_group_id: exchange_group_id
+      pool_group_id: pool_group_id
+      status: status
+      enabled: enabled
+
+  redpoint:
+    physical_table: redpoint_config
+    file: redpoint_config.csv
+    primary_key: redpoint_id
+    enabled_field: enabled
+    time_fields:
+      start: start_time
+      end: end_time
+    fields:
+      id: redpoint_id
+      activity_id: activity_id
+      parent_id: parent_redpoint_id
+      level: redpoint_level
+      start_time: start_time
+      end_time: end_time
+      open_level: open_level
+      trigger_type: trigger_type
+      clear_type: clear_type
+      related_reward_id: related_reward_id
+      related_pool_id: related_pool_id
+      enabled: enabled
+    foreign_keys:
+      activity_id: activity.activity_id
+      parent_redpoint_id: redpoint.redpoint_id
+      related_reward_id: reward.reward_id
+      related_pool_id: reward_pool.pool_id
+
+  signin:
+    physical_table: signin_config
+    file: signin_config.csv
+    primary_key: signin_id
+    enabled_field: enabled
+    time_fields:
+      start: start_time
+      end: end_time
+    fields:
+      id: signin_id
+      activity_id: activity_id
+      start_time: start_time
+      end_time: end_time
+      total_days: total_days
+      open_level: open_level
+      allow_back_claim: allow_back_claim
+      claim_scope: claim_scope
+      miss_policy: miss_policy
+      unlock_policy: unlock_policy
+      enabled: enabled
+    foreign_keys:
+      activity_id: activity.activity_id
+
+  signin_reward:
+    physical_table: signin_reward
+    file: signin_reward.csv
+    primary_key: signin_reward_id
+    enabled_field: enabled
+    fields:
+      id: signin_reward_id
+      signin_id: signin_id
+      activity_id: activity_id
+      day_no: day_no
+      reward_id: reward_id
+      unlock_level: unlock_level
+      can_back_claim: can_back_claim
+      display_order: display_order
+      enabled: enabled
+    foreign_keys:
+      signin_id: signin.signin_id
+      activity_id: activity.activity_id
+      reward_id: reward.reward_id
+
+  currency:
+    physical_table: currency_config
+    file: currency_config.csv
+    primary_key: currency_id
+    enabled_field: enabled
+    time_fields:
+      start: start_time
+      end: end_time
+    fields:
+      id: currency_id
+      name: currency_name
+      activity_id: activity_id
+      weekly_limit: weekly_limit
+      ui_display_limit: ui_display_limit
+      reset_cycle: reset_cycle
+      reset_weekday: reset_weekday
+      start_time: start_time
+      end_time: end_time
+      enabled: enabled
+    foreign_keys:
+      activity_id: activity.activity_id
+
+  task:
+    physical_table: task_config
+    file: task_config.csv
+    primary_key: task_id
+    enabled_field: enabled
+    time_fields:
+      start: start_time
+      end: end_time
+    fields:
+      id: task_id
+      activity_id: activity_id
+      task_group_id: task_group_id
+      name: task_name
+      start_time: start_time
+      end_time: end_time
+      refresh_type: refresh_type
+      refresh_weekday: refresh_weekday
+      complete_condition_type: complete_condition_type
+      reward_currency_id: reward_currency_id
+      reward_currency_count: reward_currency_count
+      reward_id: reward_id
+      enabled: enabled
+    foreign_keys:
+      activity_id: activity.activity_id
+      reward_currency_id: currency.currency_id
+      reward_id: reward.reward_id
+
+  exchange:
+    physical_table: exchange_config
+    file: exchange_config.csv
+    primary_key: exchange_id
+    enabled_field: enabled
+    time_fields:
+      start: start_time
+      end: end_time
+    fields:
+      id: exchange_id
+      activity_id: activity_id
+      exchange_group_id: exchange_group_id
+      pool_id: pool_id
+      cost_currency_id: cost_currency_id
+      cost_count: cost_count
+      display_reward_id: display_reward_id
+      actual_reward_id: actual_reward_id
+      exchange_limit: exchange_limit
+      start_time: start_time
+      end_time: end_time
+      enabled: enabled
+    foreign_keys:
+      activity_id: activity.activity_id
+      pool_id: reward_pool.pool_id
+      cost_currency_id: currency.currency_id
+      display_reward_id: reward.reward_id
+      actual_reward_id: reward.reward_id
+
+  reward_pool:
+    physical_table: reward_pool
+    file: reward_pool.csv
+    primary_key: pool_id
+    enabled_field: enabled
+    time_fields:
+      start: start_time
+      end: end_time
+    fields:
+      id: pool_id
+      activity_id: activity_id
+      pool_group_id: pool_group_id
+      stage_no: stage_no
+      start_time: start_time
+      end_time: end_time
+      next_pool_id: next_pool_id
+      preview_pool_id: preview_pool_id
+      refresh_type: refresh_type
+      trigger_redpoint_id: trigger_redpoint_id
+      enabled: enabled
+    foreign_keys:
+      activity_id: activity.activity_id
+      next_pool_id: reward_pool.pool_id
+      preview_pool_id: reward_pool.pool_id
+      trigger_redpoint_id: redpoint.redpoint_id
+
+  reward:
+    physical_table: reward_config
+    file: reward_config.csv
+    primary_key: reward_id
+    enabled_field: enabled
+    fields:
+      id: reward_id
+      type: reward_type
+      item_id: item_id
+      currency_id: currency_id
+      count: count
+      quality: quality
+      pool_id: pool_id
+      description_key: description_key
+      enabled: enabled
+    foreign_keys:
+      item_id: item.item_id
+      currency_id: currency.currency_id
+      pool_id: reward_pool.pool_id
+
+  item:
+    physical_table: item_config
+    file: item_config.csv
+    primary_key: item_id
+    enabled_field: enabled
+    fields:
+      id: item_id
+      name: item_name
+      name_key: name_key
+      desc_key: desc_key
+      quality: quality
+      icon_id: icon_id
+      stack_limit: stack_limit
+      type: item_type
+      enabled: enabled
+
+# schema 默认校验：
+# - primary_key_unique：自动检查每张表主键唯一。
+# - foreign_key_exists：自动检查 foreign_keys 中声明的引用是否存在。
+# - enabled_filter：业务规则默认只检查 enabled=true 的记录。
+# - ignore_empty_foreign_key：外键为空时不报错，适用于 parent_id / next_pool_id / 可选 reward_id 等字段。
+default_checks:
+  primary_key_unique: true
+  foreign_key_exists: true
+  enabled_filter: true
+  ignore_empty_foreign_key: true

@@ -1,0 +1,10 @@
+﻿item_id,item_name,name_key,desc_key,quality,icon_id,stack_limit,item_type,enabled
+ITEM_COPPER,铜钱,item.copper.name,item.copper.desc,normal,icon_copper,999999,currency_like,true
+ITEM_EXP_PILL,修为丹,item.exp_pill.name,item.exp_pill.desc,normal,icon_exp_pill,999,consumable,true
+ITEM_NIGHT_JADE_BOX,夜之玉匣,item.night_jade_box.name,item.night_jade_box.desc,rare,icon_night_jade_box,99,box,true
+ITEM_AVATAR_FRAME,清辉头像框,item.avatar_frame.name,item.avatar_frame.desc,rare,icon_avatar_frame,1,cosmetic,true
+ITEM_TITLE_SCROLL,夏夜称号卷,item.title_scroll.name,item.title_scroll.desc,epic,icon_title_scroll,1,cosmetic,true
+ITEM_RARE_GEM,稀有宝石,item.rare_gem.name,item.rare_gem.desc,epic,icon_rare_gem,99,material,true
+ITEM_FIREWORK,烟花,item.firework.name,item.firework.desc,rare,icon_firework,99,consumable,true
+ITEM_DRAGON_MOUNT_SKIN,游龙坐骑外观,item.dragon_mount.name,item.dragon_mount.desc,legend,icon_dragon_mount,1,cosmetic,true
+ITEM_MOON_COSTUME,月影时装,item.moon_costume.name,item.moon_costume.desc,epic,icon_moon_costume,1,cosmetic,true
